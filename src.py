@@ -22,7 +22,8 @@ def load_data():
     validation_data = zip(validation_inputs, valid_set[1])
 
     test_inputs = [np.reshape(x, (784, 1)) for x in test_set[0]]
-    test_data = zip(test_inputs, test_set[1])
+    test_results = [vectorized_result(y) for y in test_set[1]]
+    test_data = zip(test_inputs, test_results)
 
     return training_data, validation_data, test_data
 
@@ -49,15 +50,74 @@ class Network(object):
             return 1.0 / (1.0 + np.exp(-x))
 
         for w, b in zip(self.weights, self.biases):
-
             a = sigmoid(np.dot(w, a) + b)
-
         return a
 
+    def grad_desc_learn(self, input_set, output_set, cycles_no, step_size):
 
-train, val, test = load_data()
+        def compute_cost():
+            cost = 0
 
-inputs, results = zip(*train)
+            for real_input, expected_output in zip(input_set, output_set):
+                net_output = self.feed_forward(real_input)
+                local_cost = np.linalg.norm(net_output - expected_output)
+                cost += local_cost
+
+            return cost
+
+        def bias_derivative(i, j, initial_cost):
+
+            delta = 0.00001
+            self.biases[i][j, 0] += delta
+            new_cost = compute_cost()
+            self.biases[i][j, 0] -= delta
+            derivative = (new_cost - initial_cost) / delta
+
+            return derivative
+
+        for cycle in range(7):
+
+            initial_cost = compute_cost()
+            new_biases = [np.zeros((x, 1)) for x in self.sizes[1:]]
+
+            for i in range(len(self.biases)):
+                for j in range(len(self.biases[i])):
+
+                    new_biases[i][j, 0] = self.biases[i][j, 0] - step_size * bias_derivative(i, j, initial_cost)
+
+            self.biases = new_biases
+
+            print("Cycle " + str(cycle) + ": cost function --- " + str(initial_cost))
 
 
-net = Network([3, 5, 2])
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+train, valid, test = load_data()
+train_in, train_out = zip(*train)
+test_in, test_out = zip(*valid)
+
+net = Network([784, 5, 10])
+net.grad_desc_learn(train_in, train_out, 10, 0.0001)
+
+
+
