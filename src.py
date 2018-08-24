@@ -3,15 +3,12 @@ import gzip
 import numpy as np
 
 
-def vectorized_result(i):
-
-    output = np.zeros((10, 1))
-    output[i] = 1.0
-
-    return output
-
-
 def load_data():
+
+    def vectorized_result(i):
+        output = np.zeros((10, 1))
+        output[i] = 1.0
+        return output
 
     f = gzip.open("./data/mnist.pkl.gz")
     train_set, valid_set, test_set = pickle.load(f, encoding='latin1')
@@ -28,10 +25,6 @@ def load_data():
     test_data = zip(test_inputs, test_set[1])
 
     return training_data, validation_data, test_data
-
-
-def sigmoid(x):
-    return 1.0 / (1.0 + np.exp(-x))
 
 
 class Network(object):
@@ -52,11 +45,19 @@ class Network(object):
 
     def feed_forward(self, a):
 
+        def sigmoid(x):
+            return 1.0 / (1.0 + np.exp(-x))
+
         for w, b in zip(self.weights, self.biases):
 
             a = sigmoid(np.dot(w, a) + b)
 
         return a
+
+
+train, val, test = load_data()
+
+inputs, results = zip(*train)
 
 
 net = Network([3, 5, 2])
