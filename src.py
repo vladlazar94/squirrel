@@ -1,6 +1,7 @@
 import pickle
 import gzip
 import numpy as np
+import random
 
 
 def load_data():
@@ -25,10 +26,18 @@ def load_data():
     test_results = [vectorized_result(y) for y in test_set[1]]
     test_data = zip(test_inputs, test_results)
 
-    return training_data, validation_data, test_data
+    return list(training_data), list(validation_data), list(test_data)
 
 
-class Network(object):
+def sigmoid(value):
+    return 1.0 / (1.0 + np.exp(-value))
+
+
+def sigmoid_prime(value):
+    return sigmoid(value)*(1-sigmoid(value))
+
+
+class SequentialNet:
 
     def __init__(self, sizes):
 
@@ -46,78 +55,96 @@ class Network(object):
 
     def feed_forward(self, a):
 
-        def sigmoid(x):
-            return 1.0 / (1.0 + np.exp(-x))
-
         for w, b in zip(self.weights, self.biases):
             a = sigmoid(np.dot(w, a) + b)
+
         return a
 
-    def grad_desc_learn(self, input_set, output_set, cycles_no, step_size):
+    def backprop(self, sample_input, sample_output):
 
-        def compute_cost():
-            cost = 0
+        z = sample_input
+        zs = []
+        activations = [sample_input]
 
-            for real_input, expected_output in zip(input_set, output_set):
-                net_output = self.feed_forward(real_input)
-                local_cost = np.linalg.norm(net_output - expected_output)
-                cost += local_cost
+        for w, b in zip(self.weights, self.biases):
 
-            return cost
+            z = np.dot(w, z) + b
+            zs.append(z)
 
-        def bias_derivative(i, j, initial_cost):
+            activation = sigmoid(z)
+            activations.append(activation)
 
-            delta = 0.00001
-            self.biases[i][j, 0] += delta
-            new_cost = compute_cost()
-            self.biases[i][j, 0] -= delta
-            derivative = (new_cost - initial_cost) / delta
+        nabla_w = [np.zeros(n_mat.shape) for n_mat in self.weights]
+        nabla_b = [np.zeros(b_vec.shape) for b_vec in self.biases]
 
-            return derivative
+        delta = np.multiply(sigmoid_prime(zs[-1]), 2 * (activations[-1] - sample_output))
 
-        for cycle in range(7):
+        nabla_w[-1] = np.dot(delta, activations[-2].transpose())
+        nabla_b[-1] = delta
 
-            initial_cost = compute_cost()
-            new_biases = [np.zeros((x, 1)) for x in self.sizes[1:]]
+        for layer_no in range(2, self.num_layers):
 
-            for i in range(len(self.biases)):
-                for j in range(len(self.biases[i])):
+            z = zs[-layer_no]
+            delta = np.dot(self.weights[-layer_no + 1].transpose(), delta) * sigmoid_prime(z)
 
-                    new_biases[i][j, 0] = self.biases[i][j, 0] - step_size * bias_derivative(i, j, initial_cost)
+            nabla_b[-layer_no] = delta
+            nabla_w[-layer_no] = np.dot(delta, activations[-layer_no - 1].transpose())
 
-            self.biases = new_biases
+        return nabla_w, nabla_b
 
-            print("Cycle " + str(cycle) + ": cost function --- " + str(initial_cost))
+    def process_batch(self, batch, learn_rate):
+
+        nabla_w = [np.zeros(w_mat.shape) for w_mat in self.weights]
+        nabla_b = [np.zeros(b_vec.shape) for b_vec in self.biases]
+
+        for x, y in batch:
+
+            part_w_grad, part_b_grad = self.backprop(x, y)
+
+            nabla_w = [nab_w + part_w for nab_w, part_w in zip(nabla_w, part_w_grad)]
+            nabla_b = [nab_b + part_b for nab_b, part_b in zip(nabla_b, part_b_grad)]
+
+            scale_factor = -learn_rate / len(batch)
+
+            self.weights = [w_mat + scale_factor * nab_w
+                            for w_mat, nab_w in zip(self.weights, nabla_w)]
+
+            self.biases = [b_vec + scale_factor * nab_b
+                           for b_vec, nab_b in zip(self.biases, nabla_b)]
+
+    def test_network(self, test_data):
+
+        test_results = [(np.argmax(self.feed_forward(x)), np.argmax(y)) for x, y in test_data]
+
+        return sum([int(x == y) for x, y in test_results])
+
+    def stoc_grad_desc_learn(self, training_data, epochs, batch_size, learn_rate, test_data=None):
+
+        for epoch_no in range(epochs):
+
+            random.shuffle(training_data)
+
+            batches = [training_data[n: n + batch_size]
+                       for n in range(0, len(training_data), batch_size)]
+
+            for batch in batches:
+                self.process_batch(batch, learn_rate)
+
+            if test_data:
+                print("Epoch {0}: {1} / {2}".format(
+                    epoch_no, self.test_network(test_data), len(test_data)))
+            else:
+                print("Epoch {0} complete".format(j))
 
 
+training_data, validation_data, test_data = load_data()
 
+net = SequentialNet([784, 5, 10])
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-train, valid, test = load_data()
-train_in, train_out = zip(*train)
-test_in, test_out = zip(*valid)
-
-net = Network([784, 5, 10])
-net.grad_desc_learn(train_in, train_out, 10, 0.0001)
-
+net.stoc_grad_desc_learn(training_data=training_data,
+                         epochs=30,
+                         batch_size=10,
+                         learn_rate=3.0,
+                         test_data=test_data)
 
 
