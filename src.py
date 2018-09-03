@@ -1,32 +1,6 @@
-import pickle
-import gzip
-import numpy as np
 import random
-
-
-def load_data():
-
-    def vectorized_result(i):
-        output = np.zeros((10, 1))
-        output[i] = 1.0
-        return output
-
-    f = gzip.open("./data/mnist.pkl.gz")
-    train_set, valid_set, test_set = pickle.load(f, encoding='latin1')
-    f.close()
-
-    training_inputs = [np.reshape(x, (784, 1)) for x in train_set[0]]
-    training_results = [vectorized_result(y) for y in train_set[1]]
-    training_data = zip(training_inputs, training_results)
-
-    validation_inputs = [np.reshape(x, (784, 1)) for x in valid_set[0]]
-    validation_data = zip(validation_inputs, valid_set[1])
-
-    test_inputs = [np.reshape(x, (784, 1)) for x in test_set[0]]
-    test_results = [vectorized_result(y) for y in test_set[1]]
-    test_data = zip(test_inputs, test_results)
-
-    return list(training_data), list(validation_data), list(test_data)
+import loader
+import numpy as np
 
 
 def sigmoid(value):
@@ -45,13 +19,9 @@ class SequentialNet:
 
         self.sizes = sizes
 
-        self.biases = [np.random.randn(x, 1) for x in sizes[1:]]
+        self.biases = [np.random.randn(y, 1) for y in sizes[1:]]
 
-        self.weights = []
-
-        for index in range(0, len(sizes) - 1):
-
-            self.weights.append(np.random.randn(sizes[index + 1], sizes[index]))
+        self.weights = [np.random.randn(y, x) for x, y in zip(sizes[:-1], sizes[1:])]
 
     def feed_forward(self, a):
 
@@ -60,24 +30,24 @@ class SequentialNet:
 
         return a
 
-    def backprop(self, sample_input, sample_output):
+    def backprop(self, x, y):
 
-        z = sample_input
+        nabla_w = [np.zeros(w.shape) for w in self.weights]
+        nabla_b = [np.zeros(b.shape) for b in self.biases]
+
+        activation = x
+        activations = [x]
         zs = []
-        activations = [sample_input]
 
         for w, b in zip(self.weights, self.biases):
 
-            z = np.dot(w, z) + b
+            z = np.dot(w, activation) + b
             zs.append(z)
 
             activation = sigmoid(z)
             activations.append(activation)
 
-        nabla_w = [np.zeros(n_mat.shape) for n_mat in self.weights]
-        nabla_b = [np.zeros(b_vec.shape) for b_vec in self.biases]
-
-        delta = np.multiply(sigmoid_prime(zs[-1]), 2 * (activations[-1] - sample_output))
+        delta = 2 * (activations[-1] - y) * sigmoid_prime(zs[-1])
 
         nabla_w[-1] = np.dot(delta, activations[-2].transpose())
         nabla_b[-1] = delta
@@ -137,9 +107,9 @@ class SequentialNet:
                 print("Epoch {0} complete".format(j))
 
 
-training_data, validation_data, test_data = load_data()
+training_data, validation_data, test_data = loader.load_data()
 
-net = SequentialNet([784, 5, 10])
+net = SequentialNet([784, 30, 10])
 
 net.stoc_grad_desc_learn(training_data=training_data,
                          epochs=30,
