@@ -1,4 +1,5 @@
 import random
+
 import numpy as np
 
 
@@ -73,13 +74,13 @@ class SequentialNet:
             nabla_w = [nab_w + part_w for nab_w, part_w in zip(nabla_w, part_w_grad)]
             nabla_b = [nab_b + part_b for nab_b, part_b in zip(nabla_b, part_b_grad)]
 
-            scale_factor = -learn_rate / len(batch)
+        scale_factor = -learn_rate / len(batch)
 
-            self.weights = [w_mat + scale_factor * nab_w
-                            for w_mat, nab_w in zip(self.weights, nabla_w)]
+        self.weights = [w_mat + scale_factor * nab_w
+                        for w_mat, nab_w in zip(self.weights, nabla_w)]
 
-            self.biases = [b_vec + scale_factor * nab_b
-                           for b_vec, nab_b in zip(self.biases, nabla_b)]
+        self.biases = [b_vec + scale_factor * nab_b
+                       for b_vec, nab_b in zip(self.biases, nabla_b)]
 
     def test_network(self, test_data):
 
